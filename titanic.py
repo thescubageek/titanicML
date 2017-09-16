@@ -1,3 +1,5 @@
+## I freakin suck at Python right now but hopefully this will get better quickly
+
 from subprocess import check_output
 from speedml import Speedml
 import warnings
@@ -43,6 +45,8 @@ class TitanicML:
     def setup_speedml(self):
         print("Setting up Speedml")
         self.sml = Speedml('../input/train.csv', '../input/test.csv', target='Survived', uid='PassengerId')
+
+    ### DATA PREPARATION
 
     def strip_outliers(self):
         print("Stripping Outliers")
@@ -102,6 +106,8 @@ class TitanicML:
         print("FOR NOW add Age densities")
         #self.sml.feature.density(['Age'])
 
+    ### MODEL PREPARATION
+
     def prepare_models(self):
         print("prepare models")
         self.sml.model.data()
@@ -115,9 +121,9 @@ class TitanicML:
 
     def refine_max_depth_and_min_child_weight(self):
         print("refine max depth and min child weight")
-        select_params = {'max_depth': [3,5,7], 'min_child_weight': [1,3,5]}
+        select_params = {'max_depth': list(range(3, 7)), 'min_child_weight': list(range(1, 5))}
         fixed_params = {'learning_rate': 0.1, 'subsample': 0.8,
-                        'colsample_bytree': 0.8, 'seed':0,
+                        'colsample_bytree': 0.8, 'seed': 0,
                         'objective': 'binary:logistic'}
         ret = self.sml.xgb.hyper(select_params, fixed_params)
         return ret['params'][0]
@@ -125,7 +131,9 @@ class TitanicML:
 
     def refine_learning_rate_and_subsample(self, results):
         print("refine learning rate and subsamples with max_depth")
-        select_params = {'learning_rate': [0.3, 0.1, 0.01], 'subsample': [0.7, 0.8, 0.9]}
+        learning_rate_range = [0.3,0.2,0.1,0.05,0.01]
+        subsample_range = list(map(lambda x: str(x/10), range(6, 9)))
+        select_params = {'learning_rate': learning_rate_range, 'subsample': subsample_range}
         fixed_params = {'max_depth': results['max_depth'], 'min_child_weight': results['min_child_weight'],
                         'colsample_bytree': 0.8, 'seed': 0,
                         'objective': 'binary:logistic'}
@@ -159,6 +167,8 @@ class TitanicML:
         self.sml.xgb.predict()
         self.sml.xgb.feature_selection()
         self.sml.xgb.sample_accuracy()
+
+    ### RESULTS
 
     def save_results(self):
         print("save results when happy")
