@@ -1,5 +1,7 @@
 from subprocess import check_output
 from speedml import Speedml
+import warnings
+warnings.filterwarnings('ignore')
 
 class TitanicML:
     def __init__(self):
@@ -9,7 +11,7 @@ class TitanicML:
         print("running")
         self.data()
         self.models()
-        #self.results()
+        self.results()
 
     def data(self):
         print("preparing data")
@@ -17,8 +19,9 @@ class TitanicML:
         self.prepare_data()
 
     def models(self):
+        self.prepare_models()
         self.evaluate_models()
-        #self.predict_models()
+        self.predict_models()
 
     def results(self):
         self.save_results()
@@ -87,41 +90,56 @@ class TitanicML:
 
     def create_ticket_density(self):
         print("drop ticket FOR NOW")
-        self.sml.feature.density('Ticket')
+        #self.sml.feature.density('Ticket')
         self.sml.feature.drop('Ticket')
         ## TODO: ^^ let's figure out Deck using this and PClass
 
     def create_fare_density(self):
         print("FOR NOW add Fare densities")
-        self.sml.feature.density(['Fare'])
+        #self.sml.feature.density(['Fare'])
 
     def create_age_density(self):
         print("FOR NOW add Age densities")
-        self.sml.feature.density(['Age'])
+        #self.sml.feature.density(['Age'])
 
     def prepare_models(self):
+        print("prepare models")
         self.sml.model.data()
-        self.refine_max_depth_and_min_child_weight()
-        self.refine_learning_rate_and_subsample()
+        self.set_model_parameters()
+
+    def set_model_parameters(self):
+        print("set model parameters")
+        ret1 = self.refine_max_depth_and_min_child_weight()
+        ret2 = self.refine_learning_rate_and_subsample(ret1)
+        self.assign_tuned_variables(ret1, ret2)
 
     def refine_max_depth_and_min_child_weight(self):
+        print("refine max depth and min child weight")
         select_params = {'max_depth': [3,5,7], 'min_child_weight': [1,3,5]}
         fixed_params = {'learning_rate': 0.1, 'subsample': 0.8,
                         'colsample_bytree': 0.8, 'seed':0,
                         'objective': 'binary:logistic'}
-        self.sml.xgb.hyper(select_params, fixed_params)
+        ret = self.sml.xgb.hyper(select_params, fixed_params)
+        return ret['params'][0]
 
 
-    def refine_learning_rate_and_subsample(self):
+    def refine_learning_rate_and_subsample(self, results):
+        print("refine learning rate and subsamples with max_depth")
         select_params = {'learning_rate': [0.3, 0.1, 0.01], 'subsample': [0.7, 0.8, 0.9]}
-        fixed_params = {'max_depth': 5, 'min_child_weight': 7,
+        fixed_params = {'max_depth': results['max_depth'], 'min_child_weight': results['min_child_weight'],
                         'colsample_bytree': 0.8, 'seed': 0,
                         'objective': 'binary:logistic'}
-        self.sml.xgb.hyper(select_params, fixed_params)
+        ret = self.sml.xgb.hyper(select_params, fixed_params)
+        return ret['params'][0]
 
-    def assign_tuned_variables(self):
-        tuned_params = {'learning_rate': 0.1, 'subsample': 0.8,
-                        'max_depth': 3, 'min_child_weight': 1,
+    def assign_tuned_variables(self, ret1, ret2):
+        print("assign tuned variables")
+        print("learning_rate: "+str(ret2['learning_rate']))
+        print("subsample: "+str(ret2['subsample']))
+        print("max_depth: "+str(ret1['max_depth']))
+        print("min_child_weight: "+str(ret1['min_child_weight']))
+        tuned_params = {'learning_rate': ret2['learning_rate'], 'subsample': ret2['subsample'],
+                        'max_depth': ret1['max_depth'], 'min_child_weight': ret1['min_child_weight'],
                         'seed':0, 'colsample_bytree': 0.8,
                         'objective': 'binary:logistic'}
         self.sml.xgb.cv(tuned_params)
@@ -129,21 +147,21 @@ class TitanicML:
         self.sml.xgb.params(tuned_params)
 
     def evaluate_models(self):
-        """Show best models"""
-        #self.sml.xgb.classifier()
-        #self.sml.model.evaluate()
-        #self.sml.plot.model_ranks()
-        #self.sml.model.ranks()
+        print("Show best models")
+        self.sml.xgb.classifier()
+        self.sml.model.evaluate()
+        self.sml.plot.model_ranks()
+        self.sml.model.ranks()
 
     def predict_models(self):
-        """predict and get accuracy"""
+        print("predict and get accuracy")
         self.sml.xgb.fit()
         self.sml.xgb.predict()
         self.sml.xgb.feature_selection()
         self.sml.xgb.sample_accuracy()
 
     def save_results(self):
-        """save results when happy"""
+        print("save results when happy")
         self.sml.save_results(
             columns={'PassengerId': self.sml.uid,
                      'Survived': self.sml.xgb.predictions},
