@@ -63,16 +63,19 @@ class TitanicML:
         self.impute_values()
 
     def feature_densities(self):
-        self.create_ticket_density()
+        #self.create_ticket_density()
         self.create_age_density()
-        self.create_fare_density()
+        #self.create_fare_density()
 
     def drop_features(self):
         self.drop_cabin()
         self.drop_ticket()
         #self.drop_fare()
         #self.drop_age()
-        self.drop_embarked()
+        #self.drop_embarked()
+        self.drop_sibsp()
+        self.drop_parch()
+        self.drop_name()
 
     ### CREATE FEATUES
 
@@ -80,8 +83,6 @@ class TitanicML:
         print("Merge Parch and SibSp into FamilySize")
         self.sml.feature.sum(new='FamilySize', a='Parch', b='SibSp')
         self.sml.feature.add('FamilySize', 1)
-        self.sml.feature.drop('Parch')
-        self.sml.feature.drop('SibSp')
 
     def create_title(self):
         print("extract Title from Name")
@@ -92,7 +93,6 @@ class TitanicML:
         self.sml.feature.replace(a='Title', match=['Mlle','Ms'], new='Miss')
         self.sml.feature.mapping('Title', {'Miss': 1, 'Master': 2, 'Mrs': 3, 'Mr': 4, 'Crew': 5})
         self.sml.feature.fillna(a='Title', new=0)
-        self.sml.feature.drop('Name')
 
     def create_deck(self):
         print("create deck")
@@ -120,7 +120,7 @@ class TitanicML:
         for df in [titanic.sml.train, titanic.sml.test]:
           for i in list(range(1,6)):
               titles = df[(df['Title'] == i) & (df['Age'] != 0)]
-              title_mean_age = titles['Age'].mean()
+              title_mean_age = titles['Age'].median()
               null_ages = df[(df['Title'] == i) & (df['Age'] == 0)]
               null_ages['Age'] = title_mean_age
 
@@ -164,6 +164,18 @@ class TitanicML:
     def drop_embarked(self):
         print("drop embarked")
         self.sml.feature.drop('Embarked')
+
+    def drop_parch(self):
+        print("drop parch")
+        self.sml.feature.drop('Parch')
+
+    def drop_sibsp(self):
+        print("drop sibsp")
+        self.sml.feature.drop("SibSp")
+
+    def drop_name(self):
+        print("drop name")
+        self.sml.feature.drop("Name")
 
      ################ MODEL PREPARATION  ################
 
