@@ -36,10 +36,16 @@ class TitanicML:
         self.create_deck()
         self.map_sex()
         self.map_embarked()
+        self.impute_ages()
         self.impute_values()
-        self.create_ticket_density()
+        #self.create_ticket_density()
         self.create_age_density()
         self.create_fare_density()
+        #self.drop_cabin()
+        self.drop_ticket()
+        self.drop_fare()
+        #self.drop_age()
+        self.drop_embarked()
         print("data prepared")
 
     def setup_speedml(self):
@@ -51,7 +57,7 @@ class TitanicML:
     def strip_outliers(self):
         print("Stripping Outliers")
         self.sml.feature.outliers('Fare', upper=99)
-        self.sml.feature.outliers('SibSp', upper=99)
+        self.sml.feature.outliers('SibSp', upper=98)
 
     def create_family_size(self):
         print("Merge Parch and SibSp into FamilySize")
@@ -76,11 +82,13 @@ class TitanicML:
         self.sml.feature.mapping('Sex', {'male': 0, 'female': 1})
 
     def create_deck(self):
-        print("create deck and drop cabin")
+        print("create deck")
         self.sml.feature.fillna(a='Cabin', new='Z')
-        ## TODO: ^^ let's be smarter about this
         self.sml.feature.extract(new='Deck', a='Cabin', regex='([A-Z]){1}')
-        self.sml.feature.labels(['Deck'])
+        self.sml.feature.labels(['Deck', 'Cabin'])
+
+    def drop_cabin(self):
+        print("drop cabin")
         self.sml.feature.drop(['Cabin'])
 
     def map_embarked(self):
@@ -92,19 +100,44 @@ class TitanicML:
         print("IMPUTE BUT ONLY FOR NOW")
         self.sml.feature.impute()
 
+    def impute_ages(self):
+        print("Impute ages")
+        titanic.sml.feature.fillna('Age',0)
+        for df in [titanic.sml.train, titanic.sml.test]:
+          for i in list(range(1,6)):
+              titles = df[(df['Title'] == i) & (df['Age'] != 0)]
+              title_mean_age = titles['Age'].mean()
+              null_ages = df[(df['Title'] == i) & (df['Age'] == 0)]
+              null_ages['Age'] = title_mean_age
+
     def create_ticket_density(self):
-        print("drop ticket FOR NOW")
-        #self.sml.feature.density('Ticket')
-        self.sml.feature.drop('Ticket')
+        print("create ticket density")
+        self.sml.feature.density('Ticket')
         ## TODO: ^^ let's figure out Deck using this and PClass
+
+    def drop_ticket(self):
+        print("drop ticket")
+        self.sml.feature.drop('Ticket')
 
     def create_fare_density(self):
         print("FOR NOW add Fare densities")
-        #self.sml.feature.density(['Fare'])
+        self.sml.feature.density(['Fare'])
+
+    def drop_fare(self):
+        print("drop fare")
+        self.sml.feature.drop('Fare')
 
     def create_age_density(self):
         print("FOR NOW add Age densities")
-        #self.sml.feature.density(['Age'])
+        self.sml.feature.density(['Age'])
+
+    def drop_age(self):
+        print("drop age")
+        self.sml.feature.drop('Age')
+
+    def drop_embarked(self):
+        print("drop embarked")
+        self.sml.feature.drop('Embarked')
 
     ### MODEL PREPARATION
 
@@ -121,7 +154,7 @@ class TitanicML:
 
     def refine_max_depth_and_min_child_weight(self):
         print("refine max depth and min child weight")
-        select_params = {'max_depth': list(range(3, 7)), 'min_child_weight': list(range(1, 5))}
+        select_params = {'max_depth': list(range(3, 9)), 'min_child_weight': list(range(1, 7))}
         fixed_params = {'learning_rate': 0.1, 'subsample': 0.8,
                         'colsample_bytree': 0.8, 'seed': 0,
                         'objective': 'binary:logistic'}
