@@ -16,7 +16,6 @@ class TitanicML:
         self.results()
 
     def data(self):
-        print("preparing data")
         self.setup_speedml()
         self.prepare_data()
 
@@ -30,34 +29,52 @@ class TitanicML:
         self.write_results()
 
     def prepare_data(self):
+        print("preparing data")
         self.strip_outliers()
-        self.create_family_size()
-        self.create_title()
-        self.create_deck()
-        self.map_sex()
-        self.map_embarked()
-        self.impute_ages()
-        self.impute_values()
-        #self.create_ticket_density()
-        self.create_age_density()
-        self.create_fare_density()
-        #self.drop_cabin()
-        self.drop_ticket()
-        self.drop_fare()
-        #self.drop_age()
-        self.drop_embarked()
+        self.create_features()
+        self.map_features()
+        self.impute_features()
+        self.feature_densities()
+        self.drop_features()
         print("data prepared")
 
     def setup_speedml(self):
         print("Setting up Speedml")
         self.sml = Speedml('../input/train.csv', '../input/test.csv', target='Survived', uid='PassengerId')
 
-    ### DATA PREPARATION
+    ################ DATA PREPARATION  ################
 
     def strip_outliers(self):
         print("Stripping Outliers")
         self.sml.feature.outliers('Fare', upper=99)
         self.sml.feature.outliers('SibSp', upper=98)
+
+    def create_features(self):
+        self.create_family_size()
+        self.create_title()
+        self.create_deck()
+
+    def map_features(self):
+        self.map_sex()
+        self.map_embarked()
+
+    def impute_features(self):
+        self.impute_ages()
+        self.impute_values()
+
+    def feature_densities(self):
+        self.create_ticket_density()
+        self.create_age_density()
+        self.create_fare_density()
+
+    def drop_features(self):
+        self.drop_cabin()
+        self.drop_ticket()
+        #self.drop_fare()
+        #self.drop_age()
+        self.drop_embarked()
+
+    ### CREATE FEATUES
 
     def create_family_size(self):
         print("Merge Parch and SibSp into FamilySize")
@@ -77,28 +94,25 @@ class TitanicML:
         self.sml.feature.fillna(a='Title', new=0)
         self.sml.feature.drop('Name')
 
-    def map_sex(self):
-        print("map sex")
-        self.sml.feature.mapping('Sex', {'male': 0, 'female': 1})
-
     def create_deck(self):
         print("create deck")
         self.sml.feature.fillna(a='Cabin', new='Z')
         self.sml.feature.extract(new='Deck', a='Cabin', regex='([A-Z]){1}')
         self.sml.feature.labels(['Deck', 'Cabin'])
+        ## TODO ^^ figure out Deck from TicketPrice, Cabin, and PClass
 
-    def drop_cabin(self):
-        print("drop cabin")
-        self.sml.feature.drop(['Cabin'])
+    ### MAP FEATURES
+
+    def map_sex(self):
+        print("map sex")
+        self.sml.feature.mapping('Sex', {'male': 0, 'female': 1})
 
     def map_embarked(self):
         print("map embarked")
         self.sml.feature.fillna(a='Embarked', new='Z')
         self.sml.feature.mapping('Embarked', {'S': 0, 'C': 1, 'Q': 2, 'Z': 3})
 
-    def impute_values(self):
-        print("IMPUTE BUT ONLY FOR NOW")
-        self.sml.feature.impute()
+    ### IMPUTE FEATURES
 
     def impute_ages(self):
         print("Impute ages")
@@ -110,26 +124,38 @@ class TitanicML:
               null_ages = df[(df['Title'] == i) & (df['Age'] == 0)]
               null_ages['Age'] = title_mean_age
 
+    def impute_values(self):
+        print("Impute remaining empty fields")
+        self.sml.feature.impute()
+
+    ### FEATURE DENSITIES
+
     def create_ticket_density(self):
         print("create ticket density")
         self.sml.feature.density('Ticket')
         ## TODO: ^^ let's figure out Deck using this and PClass
 
-    def drop_ticket(self):
-        print("drop ticket")
-        self.sml.feature.drop('Ticket')
+    def create_age_density(self):
+        print("FOR NOW add Age densities")
+        self.sml.feature.density(['Age'])
 
     def create_fare_density(self):
         print("FOR NOW add Fare densities")
         self.sml.feature.density(['Fare'])
 
+    def drop_ticket(self):
+        print("drop ticket")
+        self.sml.feature.drop('Ticket')
+
+    ### DROP FEATURES
+
+    def drop_cabin(self):
+        print("drop cabin")
+        self.sml.feature.drop('Cabin')
+
     def drop_fare(self):
         print("drop fare")
         self.sml.feature.drop('Fare')
-
-    def create_age_density(self):
-        print("FOR NOW add Age densities")
-        self.sml.feature.density(['Age'])
 
     def drop_age(self):
         print("drop age")
@@ -139,7 +165,7 @@ class TitanicML:
         print("drop embarked")
         self.sml.feature.drop('Embarked')
 
-    ### MODEL PREPARATION
+     ################ MODEL PREPARATION  ################
 
     def prepare_models(self):
         print("prepare models")
@@ -153,6 +179,7 @@ class TitanicML:
         self.assign_tuned_variables(ret1, ret2)
 
     def refine_max_depth_and_min_child_weight(self):
+        """Finds best max_depth and min_child_weight against fixed params"""
         print("refine max depth and min child weight")
         select_params = {'max_depth': list(range(3, 9)), 'min_child_weight': list(range(1, 7))}
         fixed_params = {'learning_rate': 0.1, 'subsample': 0.8,
@@ -163,6 +190,7 @@ class TitanicML:
 
 
     def refine_learning_rate_and_subsample(self, results):
+        """Finds best refine_learning_rate and subsample against fixed params"""
         print("refine learning rate and subsamples with max_depth")
         learning_rate_range = [0.3,0.2,0.1,0.05,0.01]
         subsample_range = list(map(lambda x: str(x/10), range(6, 9)))
@@ -174,6 +202,7 @@ class TitanicML:
         return ret['params'][0]
 
     def assign_tuned_variables(self, ret1, ret2):
+        """Assigned best fit params to XGBoost"""
         print("assign tuned variables")
         print("learning_rate: "+str(ret2['learning_rate']))
         print("subsample: "+str(ret2['subsample']))
@@ -201,7 +230,7 @@ class TitanicML:
         self.sml.xgb.feature_selection()
         self.sml.xgb.sample_accuracy()
 
-    ### RESULTS
+     ################ RESULTS  ################
 
     def save_results(self):
         print("save results when happy")
